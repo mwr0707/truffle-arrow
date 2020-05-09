@@ -4,6 +4,7 @@ import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.frame.FrameSlotKind;
 import org.apache.calcite.rex.*;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 import java.util.List;
@@ -73,7 +74,8 @@ public class CompileExpr implements RexVisitor<ExprBase> {
 
   @Override
   public ExprBase visitCall(RexCall call) {
-    switch (call.getKind()) {
+    SqlKind sqlKind = call.getKind();
+    switch (sqlKind) {
 //      case TIMES:
 //        return binary(call.getOperands(), ExprMultiplyNodeGen::create);
 //      case DIVIDE:
@@ -85,35 +87,15 @@ public class CompileExpr implements RexVisitor<ExprBase> {
 //      case IN:
 //        throw new UnsupportedOperationException();
       case LESS_THAN:
-        if (containsInputRef(call.getOperands())) {
-          return binary(call.getOperands(), ExprLessThanFilterNodeGen::create);
-        }
-        throw new UnsupportedOperationException();
       case GREATER_THAN:
-        if (containsInputRef(call.getOperands())) {
-          return binary(call.getOperands(), ExprGreaterThanFilterNodeGen::create);
-        }
-        throw new UnsupportedOperationException();
       case LESS_THAN_OR_EQUAL:
-        if (containsInputRef(call.getOperands())) {
-          return binary(call.getOperands(), ExprLessEqualFilterNodeGen::create);
-        }
-        throw new UnsupportedOperationException();
       case GREATER_THAN_OR_EQUAL:
-        if (containsInputRef(call.getOperands())) {
-          return binary(call.getOperands(), ExprGreaterEqualFilterNodeGen::create);
-        }
-        throw new UnsupportedOperationException();
       case EQUALS:
-        if (containsInputRef(call.getOperands())) {
-          return binary(call.getOperands(), ExprFilterNodeGen::create);
-        }
-        return binary(call.getOperands(), ExprEqualsNodeGen::create);
       case NOT_EQUALS:
         if (containsInputRef(call.getOperands())) {
-          return binary(call.getOperands(), ExprNotEqualFilterNodeGen::create);
+          return binary(sqlKind, call.getOperands(), ExprFilterNodeGen::create);
         }
-        throw new UnsupportedOperationException();
+        return binary(sqlKind, call.getOperands(), ExprEqualsNodeGen::create);
 //      case OR:
 //        return fold(call.getOperands(), 0, ExprOrNodeGen::create);
 //      case AND:
@@ -235,27 +217,27 @@ public class CompileExpr implements RexVisitor<ExprBase> {
 
   @FunctionalInterface
   private interface BinaryConstructor {
-    ExprBinary accept(ExprBase left, ExprBase right);
+    ExprBinary accept(SqlKind sqlKind, ExprBase left, ExprBase right);
   }
 
-  private ExprBase fold(List<RexNode> operands, int offset, BinaryConstructor reduce) {
+  private ExprBase fold(SqlKind sqlKind, List<RexNode> operands, int offset, BinaryConstructor reduce) {
     assert operands.size() > 0;
 
     ExprBase acc = compile(operands.get(operands.size() - 1));
 
     for (int i = operands.size() - 2; i >= 0; i--)
-      acc = reduce.accept(compile(operands.get(i)), acc);
+      acc = reduce.accept(sqlKind, compile(operands.get(i)), acc);
 
     return acc;
   }
 
-  private ExprBase binary(List<RexNode> operands, BinaryConstructor then) {
+  private ExprBase binary(SqlKind sqlKind, List<RexNode> operands, BinaryConstructor then) {
     assert operands.size() == 2;
 
     ExprBase left = operands.get(0).accept(new CompileExpr(from));
     ExprBase right = operands.get(1).accept(new CompileExpr(from));
 
-    return then.accept(left, right);
+    return then.accept(sqlKind, left, right);
   }
 
   @Override
