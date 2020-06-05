@@ -58,12 +58,6 @@ public class JdbcTest {
   }
 
   @Test
-  public void filterIsNull() {
-    // a is null
-    // a is not null
-  }
-
-  @Test
   public void filterAndOr() {
     // a = 1 and b = 2
     // a = 1 or b = 2

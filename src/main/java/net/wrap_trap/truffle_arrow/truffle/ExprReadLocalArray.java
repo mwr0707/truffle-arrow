@@ -19,6 +19,7 @@ import java.util.List;
 abstract class ExprReadLocalArray extends ExprBase {
   protected abstract FrameSlot getSlot();
   protected abstract int getIndex();
+  // ここに、ExprReadLocal を持った ExprEquals をセットする？
 
   @Specialization(guards = "isObject(frame)")
   protected Object readObject(VirtualFrame frame) {

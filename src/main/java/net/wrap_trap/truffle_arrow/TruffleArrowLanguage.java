@@ -66,7 +66,7 @@ public class TruffleArrowLanguage extends TruffleLanguage<TruffleArrowContext> {
   }
 
   @Override
-  protected CallTarget parse(ParsingRequest request) throws Exception {
+  protected CallTarget parse(ParsingRequest request) {
     String sql = request.getSource().getCharacters().toString();
     SqlNode sqlNode = SqlParser.parse(sql);
     RelRoot root = createPlan(sqlNode);
@@ -79,24 +79,26 @@ public class TruffleArrowLanguage extends TruffleLanguage<TruffleArrowContext> {
 
     ThenRowSink sink = resultFrame -> new RowSink() {
       @Override
-      public void executeVoid(VirtualFrame frame, FrameDescriptor frameDescriptor) {
-        FrameSlot slot0 = frameDescriptor.findFrameSlot(0);
-        List<FieldVector> fieldVectors = (List<FieldVector>) frame.getValue(slot0);
-
-        UInt4Vector selectionVector = null;
-        FrameSlot slot1 = frameDescriptor.findFrameSlot(1);
-        if (slot1 != null) {
-          selectionVector = (UInt4Vector) frame.getValue(slot1);
+      public void executeVoid(VirtualFrame frame, FrameDescriptorPart sourceFrame, SinkContext context) {
+        List<Object> row = new ArrayList<>();
+        for (int i = 0; i < sourceFrame.size(); i ++) {
+          Object truffleObject = frame.getValue(sourceFrame.findFrameSlot(i));
+          row.add(getValue(truffleObject, context.getArrowFieldType(i)));
         }
+        results.add(new Row(row));
+//        FrameSlot slot0 = resultFrame.findFrameSlot(0);
+//        List<FieldVector> fieldVectors = (List<FieldVector>) frame.getValue(slot0);
 
-        Object[] vectors = new Object[fieldVectors.size()];
-        fieldVectors.toArray(vectors);
-        results.addAll(convertVectorsToRows(vectors, selectionVector));
+//        UInt4Vector selectionVector = null;
+//        FrameSlot slot1 = resultFrame.findFrameSlot(1);
+//        if (slot1 != null) {
+//          selectionVector = (UInt4Vector) frame.getValue(slot1);
+//        }
+
       }
     };
 
-    CallTarget callTarget = compile(plan, results, sink);
-    return callTarget;
+    return  compile(plan, results, sink);
   }
 
   private List<Row> convertVectorsToRows(Object[] vectors, UInt4Vector selectionVector) {
@@ -133,7 +135,7 @@ public class TruffleArrowLanguage extends TruffleLanguage<TruffleArrowContext> {
     } else if (o instanceof Text) {
       return o.toString();
     } else if (arrowFieldType == ArrowFieldType.TIME) {
-      return ((Integer) o).intValue() * 1000;
+      return ((Integer) o) * 1000;
     }
     return o;
   }

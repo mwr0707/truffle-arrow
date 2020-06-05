@@ -17,7 +17,7 @@ import java.util.Objects;
  */
 public class CompileExpr implements RexVisitor<ExprBase> {
 
-  public static ExprBase compile(FrameDescriptor from, RexNode child) {
+  public static ExprBase compile(FrameDescriptorPart from, RexNode child) {
     CompileExpr compiler = new CompileExpr(from);
 
     return child.accept(compiler);
@@ -28,9 +28,9 @@ public class CompileExpr implements RexVisitor<ExprBase> {
    *
    * Can be empty in queries like SELECT 1
    */
-  private final FrameDescriptor from;
+  private final FrameDescriptorPart from;
 
-  CompileExpr(FrameDescriptor from) {
+  CompileExpr(FrameDescriptorPart from) {
     this.from = from;
   }
 
@@ -127,8 +127,8 @@ public class CompileExpr implements RexVisitor<ExprBase> {
         return ExprCastNodeGen.create(call.getType(), compile(singleOperand(call.getOperands())));
 //      case OR:
 //        return fold(call.getOperands(), 0, ExprOrNodeGen::create);
-//      case AND:
-//        return binary(call.getOperands(), ExprAndNodeGen::create);
+      case AND:
+        return binary(call.getOperands(), ExprAndNodeGen::create);
 //      case LIKE:
 //        throw new UnsupportedOperationException();
 //      case SIMILAR:

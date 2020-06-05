@@ -8,20 +8,23 @@ public class TerminalSink extends RowSource {
 
   private RowSink then;
   private FrameDescriptor frameDescriptor;
+  private FrameDescriptorPart sourceFrame;
 
   public static RowSource compile(ThenRowSink next) {
-    FrameDescriptor empty = new FrameDescriptor();
-
-    return new TerminalSink(empty, next.apply(empty));
+    FrameDescriptorPart sourceFrame = FrameDescriptorPart.root(0);
+    return new TerminalSink(sourceFrame, next.apply(sourceFrame));
   }
 
-  private TerminalSink(FrameDescriptor frameDescriptor, RowSink then) {
-    this.frameDescriptor = frameDescriptor;
+  private TerminalSink(FrameDescriptorPart sourceFrame, RowSink then) {
+    this.frameDescriptor = sourceFrame.frame();
+    this.sourceFrame = sourceFrame;
     this.then = then;
   }
 
   @Override
   protected void executeVoid() throws UnexpectedResultException {
-    then.executeVoid(Truffle.getRuntime().createVirtualFrame(new Object[] { }, frameDescriptor), frameDescriptor);
+    then.executeVoid(
+      Truffle.getRuntime().createVirtualFrame(new Object[] { }, frameDescriptor),
+      this.sourceFrame, new SinkContext());
   }
 }
